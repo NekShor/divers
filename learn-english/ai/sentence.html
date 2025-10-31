@@ -215,8 +215,9 @@
         <div class="api-key-section">
             <h3>Configuration de l'API OpenAI</h3>
             <p>Entrez votre clé API OpenAI pour utiliser ChatGPT :</p>
-            <input type="password" id="apiKey" placeholder="sk-..." />
+            <input type="password" id="apiKey" placeholder="sk-proj-..." />
             <small style="color: #666;">Votre clé API est stockée localement et n'est pas envoyée ailleurs que vers OpenAI.</small>
+            <small style="display: block; margin-top: 8px; color: #e67e22; font-weight: bold;">⚠️ N'oubliez pas de remplacer la clé par défaut par votre vraie clé API OpenAI !</small>
         </div>
         
         <button id="generateBtn" onclick="generateSentences()">
@@ -474,11 +475,15 @@ Les phrases doivent être variées, utiles pour l'apprentissage, et couvrir diff
             localStorage.setItem('openai_api_key', e.target.value);
         });
 
-        // Charger la clé API sauvegardée
+        // Charger la clé API sauvegardée ou une clé par défaut
         window.addEventListener('load', function() {
             const savedApiKey = localStorage.getItem('openai_api_key');
+            const defaultApiKey = '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'; // Remplacez par votre vraie clé API
+            
             if (savedApiKey) {
                 document.getElementById('apiKey').value = savedApiKey;
+            } else {
+                document.getElementById('apiKey').value = defaultApiKey;
             }
         });
     </script>
