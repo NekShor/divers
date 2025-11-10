@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liste des Personnes</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .person-grid {
+            position: relative;
+            width: 600px;
+            height: 600px;
+            margin: 50px auto;
+            transform-origin: 50% 50%; /* Sera ajusté dynamiquement au vrai centre */
+        }
+        .person-card {
+            position: absolute;
+            background: transparent;
+            border-radius: 10px;
+            padding: 0;
+            text-align: center;
+            width: 80px;
+            height: 110px;
+            left: 50%;
+            top: 50%;
+            margin-left: -40px; /* -width/2 */
+            margin-top: -55px;  /* -height/2 */
+        }
+        /* .person-card:hover désactivé pour éviter les décalages et mouvements de la roue */
+        .person-image {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin: 0;
+            display: block;
+        }
+        .person-name {
+            font-size: 11px;
+            font-weight: bold;
+            color: #333;
+            margin: 5px 0 0 0;
+            line-height: 1.1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .spin-button {
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .spin-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        .spin-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .spinning {
+            animation: spin 3s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+            /* transform-origin sera défini dynamiquement */
+        }
+        .person-card.hidden-content .person-name {
+            opacity: 0;
+        }
+        .person-card.hidden-content .person-image {
+            opacity: 0;
+        }
+        .person-card.hidden-content::before {
+            content: '';
+            position: absolute;
+            width: 76px;
+            height: 76px;
+            border: 2px solid black;
+            background-color: white;
+            border-radius: 50%;
+            top: 0;
+            left: 2px;
+            z-index: 2;
+        }
+        @keyframes spin {
+            0% { 
+                transform: rotate(0deg);
+            }
+            100% { 
+                transform: rotate(var(--final-rotation));
+            }
+        }
+        .winner-highlight {
+            animation: winner-pulse 1s ease-in-out 3;
+        }
+        @keyframes winner-pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.3); filter: brightness(1.5); }
+        }
+        .relation-line {
+            position: absolute;
+            pointer-events: none;
+            z-index: -1;
+            opacity: 0;
+            transition: opacity 1.5s ease-in-out;
+        }
+        .relation-line.visible {
+            opacity: 1;
+        }
+        .relation-label {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: bold;
+            pointer-events: none;
+            z-index: -1;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+            opacity: 0;
+            transition: opacity 1.5s ease-in-out;
+        }
+        .relation-label.visible {
+            opacity: 1;
+        }
+
+
+    </style>
+</head>
+<body>
+    <!-- Formulaire de saisie initial -->
+    <div id="setupForm" style="max-width: 800px; margin: 0 auto; padding: 20px; background: white; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+        <h2 style="text-align: center; color: #333;">Configuration de la Roue des Relations</h2>
+        
+        <!-- Section Personnes -->
+        <div style="margin-bottom: 30px;">
+            <h3 style="color: #4ecdc4;">📋 Ajouter des Personnes</h3>
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <input type="text" id="personName" placeholder="Nom de la personne" style="flex: 1; padding: 10px; border: 2px solid #ddd; border-radius: 5px;">
+                <input type="url" id="personImage" placeholder="URL de l'image (optionnel)" style="flex: 1; padding: 10px; border: 2px solid #ddd; border-radius: 5px;">
+                <button onclick="addPerson()" style="padding: 10px 20px; background: #4ecdc4; color: white; border: none; border-radius: 5px; cursor: pointer;">Ajouter</button>
+            </div>
+            <div id="personsList" style="background: #f9f9f9; padding: 15px; border-radius: 5px; min-height: 100px; border: 2px dashed #ddd;">
+                <p style="color: #666; margin: 0; text-align: center;">Les personnes ajoutées apparaîtront ici...</p>
+            </div>
+        </div>
+        
+        <!-- Section Relations -->
+        <div style="margin-bottom: 30px;">
+            <h3 style="color: #e74c3c;">🔗 Ajouter des Relations</h3>
+            <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+                <select id="person1Select" style="flex: 1; min-width: 150px; padding: 10px; border: 2px solid #ddd; border-radius: 5px;">
+                    <option value="">Personne 1</option>
+                </select>
+                <select id="person2Select" style="flex: 1; min-width: 150px; padding: 10px; border: 2px solid #ddd; border-radius: 5px;">
+                    <option value="">Personne 2</option>
+                </select>
+                <input type="text" id="relationName" placeholder="Type de relation" style="flex: 1; min-width: 120px; padding: 10px; border: 2px solid #ddd; border-radius: 5px;">
+                <input type="range" id="relationIntensity" min="1" max="10" value="5" style="flex: 0 0 80px;">
+                <span id="intensityValue" style="min-width: 30px; padding: 10px;">5</span>
+                <input type="color" id="relationColor" value="#4ecdc4" style="width: 50px; height: 42px; border: none; border-radius: 5px;">
+                <label style="display: flex; align-items: center; gap: 5px; font-size: 12px;">
+                    <input type="checkbox" id="relationHypothesis" style="width: 16px; height: 16px;">
+                    Hypothèse
+                </label>
+                <button onclick="addRelation()" style="padding: 10px 20px; background: #e74c3c; color: white; border: none; border-radius: 5px; cursor: pointer;">Ajouter</button>
+            </div>
+            <div id="relationsList" style="background: #f9f9f9; padding: 15px; border-radius: 5px; min-height: 100px; border: 2px dashed #ddd;">
+                <p style="color: #666; margin: 0; text-align: center;">Les relations ajoutées apparaîtront ici...</p>
+            </div>
+        </div>
+        
+        <!-- Boutons d'export/import -->
+        <div style="text-align: center; margin-bottom: 20px;">
+            <button onclick="exportToClipboard()" style="padding: 10px 20px; background: #3498db; color: white; border: none; border-radius: 25px; cursor: pointer; margin-right: 10px; font-size: 14px;">
+                📋 Exporter Configuration
+            </button>
+            <button onclick="showImportDialog()" style="padding: 10px 20px; background: #9b59b6; color: white; border: none; border-radius: 25px; cursor: pointer; font-size: 14px;">
+                📥 Importer Configuration
+            </button>
+        </div>
+
+        <!-- Dialog d'import (caché par défaut) -->
+        <div id="importDialog" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000;">
+            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 10px; max-width: 600px; width: 90%; max-height: 80%; overflow-y: auto;">
+                <h3 style="margin-top: 0; color: #333;">📥 Importer une Configuration</h3>
+                <p style="color: #666; margin-bottom: 20px;">Collez votre configuration JSON dans la zone ci-dessous :</p>
+                
+                <textarea id="importTextarea" placeholder="Collez votre JSON ici..." style="width: 100%; height: 200px; padding: 10px; border: 2px solid #ddd; border-radius: 5px; font-family: monospace; font-size: 12px; resize: vertical;"></textarea>
+                
+                <div style="text-align: center; margin-top: 20px;">
+                    <button onclick="processImport()" style="padding: 12px 25px; background: #27ae60; color: white; border: none; border-radius: 25px; cursor: pointer; margin-right: 10px; font-size: 14px;">
+                        ✅ Importer
+                    </button>
+                    <button onclick="hideImportDialog()" style="padding: 12px 25px; background: #95a5a6; color: white; border: none; border-radius: 25px; cursor: pointer; font-size: 14px;">
+                        ❌ Annuler
+                    </button>
+                </div>
+                
+                <div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 5px;">
+                    <small style="color: #666;">
+                        💡 <strong>Astuce :</strong> Vous pouvez également coller directement avec Ctrl+V dans la zone de texte.
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bouton de démarrage -->
+        <div style="text-align: center;">
+            <button id="startWheel" onclick="startWheel()" style="padding: 15px 40px; background: linear-gradient(45deg, #ff6b6b, #4ecdc4); color: white; border: none; border-radius: 50px; font-size: 18px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+                🎯 Démarrer la Roue (minimum 3 personnes)
+            </button>
+        </div>
+    </div>
+
+    <!-- Interface principale (cachée au début) -->
+    <div id="mainInterface" style="display: none;">
+        <div style="text-align: center; margin-bottom: 30px;">
+            <button id="spinButton" class="spin-button">🎯 Faire tourner la roue</button>
+            <button onclick="resetToSetup()" style="margin-left: 15px; padding: 10px 20px; background: #95a5a6; color: white; border: none; border-radius: 25px; cursor: pointer;">⚙️ Éditer Configuration</button>
+        </div>
+        
+        <div id="personContainer" class="person-grid"></div>
+    </div>
+
+
+
+    <script>
+
+
+
+
+        // Listes dynamiques (vides au début)
+        let persons = [];
+        let relations = [];
+        let personIdCounter = 1;
+
+        let isSpinning = false;
+        let personCards = [];
+
+        // Fonction pour afficher les personnes en cercle parfaitement centré
+        function displayPersons() {
+            const container = document.getElementById('personContainer');
+            const centerX = 300; // Centre X du conteneur (600/2)
+            const centerY = 300; // Centre Y du conteneur (600/2)
+            const radius = 220;  // Rayon optimal pour éviter les débordements
+            
+            persons.forEach((person, index) => {
+                const personCard = document.createElement('div');
+                personCard.className = 'person-card';
+                personCard.dataset.index = index;
+                personCard.dataset.personId = person.id;
+                
+                // Calculer la position en cercle parfait (commencer à 12h)
+                const angle = (index * 2 * Math.PI) / persons.length - Math.PI / 2; // -90° pour commencer en haut
+                
+                // Position exacte du centre de la carte
+                const cardCenterX = centerX + radius * Math.cos(angle);
+                const cardCenterY = centerY + radius * Math.sin(angle);
+                
+                // Appliquer la position (CSS margin se charge du centrage parfait)
+                personCard.style.left = cardCenterX + 'px';
+                personCard.style.top = cardCenterY + 'px';
+                
+                personCard.innerHTML = `
+                    ${person.image ? 
+                        `<img src="${person.image}" alt="${person.nom}" class="person-image">` :
+                        `<div class="person-image" style="background: ${person.color}; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 24px;">${person.nom.charAt(0).toUpperCase()}</div>`
+                    }
+                    <h3 class="person-name">${person.nom}</h3>
+                `;
+                
+                container.appendChild(personCard);
+                personCards.push(personCard);
+            });
+            
+            // Utiliser le centre mathématique exact du conteneur pour une rotation stable
+            // Plus besoin de calculer dynamiquement - utiliser le centre géométrique
+            window.trueCenterX = centerX; // 300px
+            window.trueCenterY = centerY; // 300px
+            console.log(`🎯 Centre fixe de la roue: (${centerX}, ${centerY})`);
+            
+            // Définir le transform-origin au centre exact (50% 50%)
+            container.style.transformOrigin = '50% 50%';
+            console.log(`🎯 Transform-origin fixé au centre: 50% 50%`);
+        }
+
+        let currentRotation = 0;
+        let relationsDisplayed = false;
+
+        // Fonction pour obtenir la position actuelle d'une personne après rotation
+        function getPersonPosition(personId) {
+            const person = persons.find(p => p.id === personId);
+            const index = persons.indexOf(person);
+            
+            // Position relative au centre du conteneur (mêmes paramètres que displayPersons)
+            const centerX = 300;
+            const centerY = 300;
+            const radius = 220; // Même rayon que displayPersons
+            
+            // Angle initial de la personne (position sans rotation, commencer à 12h)
+            const baseAngle = (index * 2 * Math.PI) / persons.length - Math.PI / 2;
+            
+            // Position du CENTRE de la personne sur le cercle SANS rotation (position originale)
+            const x = centerX + radius * Math.cos(baseAngle);
+            const y = centerY + radius * Math.sin(baseAngle);
+            
+            return { x, y };
+        }
+
+        // Fonction pour afficher les relations
+        function displayRelations() {
+            if (relationsDisplayed) return;
+            
+            const container = document.getElementById('personContainer');
+            
+            relations.forEach(relation => {
+                // Obtenir les positions des deux personnes (positions originales sans rotation)
+                const pos1 = getPersonPosition(relation.person1);
+                const pos2 = getPersonPosition(relation.person2);
+                
+                // Calculer la distance et l'angle
+                const dx = pos2.x - pos1.x;
+                const dy = pos2.y - pos1.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+                
+                // Créer la ligne
+                const line = document.createElement('div');
+                line.className = 'relation-line';
+                line.style.position = 'absolute';
+                line.style.left = pos1.x + 'px';
+                line.style.top = (pos1.y - relation.intensite/2) + 'px';
+                line.style.width = distance + 'px';
+                line.style.height = relation.intensite + 'px';
+                line.style.backgroundColor = relation.couleur;
+                line.style.transformOrigin = '0 50%';
+                line.style.transform = `rotate(${angle}deg)`;
+                
+                // Ajouter des pointillés si c'est une hypothèse
+                if (relation.hypothese) {
+                    line.style.backgroundImage = `repeating-linear-gradient(90deg, ${relation.couleur} 0px, ${relation.couleur} 8px, transparent 8px, transparent 16px)`;
+                    line.style.backgroundColor = 'transparent';
+                }
+                
+                // Créer le label avec rotation inverse pour qu'il reste droit
+                const label = document.createElement('div');
+                label.className = 'relation-label';
+                label.textContent = relation.nomRelation;
+                label.style.left = (pos1.x + pos2.x) / 2 + 'px';
+                label.style.top = (pos1.y + pos2.y) / 2 + 'px';
+                label.style.color = relation.couleur;
+                label.style.borderColor = relation.couleur;
+                // Appliquer une rotation inverse à celle du conteneur pour garder le texte droit
+                label.style.transform = `translate(-50%, -50%) rotate(${-currentRotation}deg)`;
+                
+                container.appendChild(line);
+                container.appendChild(label);
+                
+                // Déclencher l'animation d'apparition après un court délai
+                setTimeout(() => {
+                    line.classList.add('visible');
+                    label.classList.add('visible');
+                }, 100);
+            });
+            
+            relationsDisplayed = true;
+        }
+
+        // Fonction pour mélanger les personnes aléatoirement
+        function shufflePersons() {
+            // Créer une copie mélangée de la liste des personnes
+            const shuffledPersons = [...persons].sort(() => Math.random() - 0.5);
+            
+            // Repositionner chaque carte avec les nouvelles données
+            personCards.forEach((card, index) => {
+                const newPerson = shuffledPersons[index];
+                card.dataset.personId = newPerson.id;
+                
+                // Mettre à jour le contenu de la carte
+                card.innerHTML = `
+                    ${newPerson.image ? 
+                        `<img src="${newPerson.image}" alt="${newPerson.nom}" class="person-image">` :
+                        `<div class="person-image" style="background: ${newPerson.color}; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 24px;">${newPerson.nom.charAt(0).toUpperCase()}</div>`
+                    }
+                    <h3 class="person-name">${newPerson.nom}</h3>
+                `;
+            });
+            
+            // Mettre à jour la liste globale des personnes avec l'ordre mélangé
+            persons.splice(0, persons.length, ...shuffledPersons);
+        }
+
+        // Fonction pour faire tourner la roue
+        function spinWheel() {
+            if (isSpinning) return;
+            
+            isSpinning = true;
+            const spinButton = document.getElementById('spinButton');
+            const container = document.getElementById('personContainer');
+            
+            // Désactiver le bouton pendant l'animation
+            spinButton.disabled = true;
+            spinButton.textContent = '🎯 Rotation en cours...';
+            
+            // Mélanger les personnes avant l'animation
+            shufflePersons();
+            
+            // Générer une rotation aléatoire (au moins 3 tours complets + position finale)
+            const minRotations = 3;
+            const maxRotations = 6;
+            const randomRotations = Math.random() * (maxRotations - minRotations) + minRotations;
+            const additionalRotation = randomRotations * 360;
+            const finalRotation = currentRotation + additionalRotation;
+            
+            // Transformer en cercles creux avant l'animation
+            personCards.forEach(card => {
+                card.classList.add('hidden-content');
+            });
+            
+            // FORCER le point de rotation au centre fixe
+            container.style.transformOrigin = '50% 50%';
+            container.style.transform = `rotate(${currentRotation}deg)`;
+            
+            console.log(`🎯 Rotation autour du centre fixe: 50% 50%`);
+            
+            // Petite pause pour que le navigateur applique le transform-origin
+            setTimeout(() => {
+                // Appliquer l'animation CSS
+                container.style.setProperty('--final-rotation', finalRotation + 'deg');
+                container.classList.add('spinning');
+            }, 10);            // Après l'animation, maintenir la position finale et réactiver le bouton
+            setTimeout(() => {
+                // Mettre à jour la rotation actuelle
+                currentRotation = finalRotation;
+                // Appliquer la rotation finale de façon permanente avec le centre fixe
+                container.style.transformOrigin = '50% 50%';
+                container.style.transform = `rotate(${finalRotation}deg)`;
+                // Enlever la classe d'animation
+                container.classList.remove('spinning');
+                
+                // Réactiver le bouton
+                spinButton.disabled = false;
+                spinButton.textContent = '🎯 Faire tourner la roue';
+                isSpinning = false;
+                
+                // Afficher les relations après un petit délai
+                setTimeout(() => {
+                    displayRelations();
+                }, 500);
+                
+            }, 3010); // Durée de l'animation CSS + délai initial
+        }
+
+
+
+
+
+        // Fonctions pour la configuration initiale
+        function addPerson() {
+            const nameInput = document.getElementById('personName');
+            const imageInput = document.getElementById('personImage');
+            const name = nameInput.value.trim();
+            
+            if (!name) {
+                nameInput.style.borderColor = '#e74c3c';
+                nameInput.focus();
+                return;
+            }
+            
+            // Vérifier si la personne existe déjà
+            if (persons.some(p => p.nom.toLowerCase() === name.toLowerCase())) {
+                nameInput.style.borderColor = '#e74c3c';
+                nameInput.focus();
+                return;
+            }
+            
+            // Réinitialiser la bordure si tout va bien
+            nameInput.style.borderColor = '#ddd';
+            
+            // La fonction getRandomColor() est maintenant définie plus bas
+            
+            // Ajouter la personne
+            const person = {
+                id: personIdCounter++,
+                nom: name,
+                image: imageInput.value.trim() || null,
+                color: imageInput.value.trim() ? null : getRandomColor()
+            };
+            
+            persons.push(person);
+            
+            // Vider les champs
+            nameInput.value = '';
+            imageInput.value = '';
+            
+            // Mettre à jour l'affichage
+            updatePersonsList();
+            updatePersonSelects();
+            updateStartButton();
+        }
+        
+        function updatePersonsList() {
+            const container = document.getElementById('personsList');
+            if (persons.length === 0) {
+                container.innerHTML = '<p style="color: #666; margin: 0; text-align: center;">Les personnes ajoutées apparaîtront ici...</p>';
+                return;
+            }
+            
+            container.innerHTML = persons.map(person => `
+                <div style="display: flex; align-items: center; margin-bottom: 10px; padding: 10px; background: white; border-radius: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    ${person.image ? 
+                        `<img src="${person.image}" alt="${person.nom}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; margin-right: 10px;">` :
+                        `<div style="width: 40px; height: 40px; border-radius: 50%; background: ${person.color}; margin-right: 10px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 16px;">${person.nom.charAt(0).toUpperCase()}</div>`
+                    }
+                    <span style="flex: 1; font-weight: bold;">${person.nom}</span>
+                    <button onclick="editPerson(${person.id})" style="background: #f39c12; color: white; border: none; border-radius: 3px; padding: 5px 10px; cursor: pointer; margin-right: 5px;">Modifier</button>
+                    <button onclick="removePerson(${person.id})" style="background: #e74c3c; color: white; border: none; border-radius: 3px; padding: 5px 10px; cursor: pointer;">Supprimer</button>
+                </div>
+            `).join('');
+        }
+        
+        function removePerson(personId) {
+            persons = persons.filter(p => p.id !== personId);
+            relations = relations.filter(r => r.person1 !== personId && r.person2 !== personId);
+            updatePersonsList();
+            updatePersonSelects();
+            updateRelationsList();
+            updateStartButton();
+        }
+        
+        function updatePersonSelects() {
+            const select1 = document.getElementById('person1Select');
+            const select2 = document.getElementById('person2Select');
+            
+            const options = '<option value="">Choisir...</option>' + 
+                persons.map(p => `<option value="${p.id}">${p.nom}</option>`).join('');
+            
+            select1.innerHTML = options;
+            select2.innerHTML = options;
+        }
+        
+        function addRelation() {
+            const person1Id = parseInt(document.getElementById('person1Select').value);
+            const person2Id = parseInt(document.getElementById('person2Select').value);
+            const relationName = document.getElementById('relationName').value.trim();
+            const intensity = parseInt(document.getElementById('relationIntensity').value);
+            const color = document.getElementById('relationColor').value;
+            const isHypothesis = document.getElementById('relationHypothesis').checked;
+            
+            if (!person1Id || !person2Id || !relationName) {
+                // Mettre en évidence les champs vides
+                if (!person1Id) document.getElementById('person1Select').style.borderColor = '#e74c3c';
+                if (!person2Id) document.getElementById('person2Select').style.borderColor = '#e74c3c';
+                if (!relationName) document.getElementById('relationName').style.borderColor = '#e74c3c';
+                return;
+            }
+            
+            if (person1Id === person2Id) {
+                document.getElementById('person2Select').style.borderColor = '#e74c3c';
+                return;
+            }
+            
+            // Vérifier si la relation existe déjà
+            if (relations.some(r => 
+                (r.person1 === person1Id && r.person2 === person2Id) || 
+                (r.person1 === person2Id && r.person2 === person1Id)
+            )) {
+                document.getElementById('person1Select').style.borderColor = '#e74c3c';
+                document.getElementById('person2Select').style.borderColor = '#e74c3c';
+                return;
+            }
+            
+            // Réinitialiser les bordures si tout va bien
+            document.getElementById('person1Select').style.borderColor = '#ddd';
+            document.getElementById('person2Select').style.borderColor = '#ddd';
+            document.getElementById('relationName').style.borderColor = '#ddd';
+            
+            // Ajouter la relation
+            const relation = {
+                person1: person1Id,
+                person2: person2Id,
+                intensite: intensity,
+                nomRelation: relationName,
+                couleur: color,
+                hypothese: isHypothesis
+            };
+            
+            relations.push(relation);
+            
+            // Réinitialiser les champs
+            document.getElementById('person1Select').value = '';
+            document.getElementById('person2Select').value = '';
+            document.getElementById('relationName').value = '';
+            document.getElementById('relationIntensity').value = '5';
+            document.getElementById('intensityValue').textContent = '5';
+            document.getElementById('relationHypothesis').checked = false;
+            
+            // Mettre à jour l'affichage
+            updateRelationsList();
+        }
+        
+        function updateRelationsList() {
+            const container = document.getElementById('relationsList');
+            if (relations.length === 0) {
+                container.innerHTML = '<p style="color: #666; margin: 0; text-align: center;">Les relations ajoutées apparaîtront ici...</p>';
+                return;
+            }
+            
+            container.innerHTML = relations.map((relation, index) => {
+                const person1 = persons.find(p => p.id === relation.person1);
+                const person2 = persons.find(p => p.id === relation.person2);
+                return `
+                    <div style="display: flex; align-items: center; margin-bottom: 10px; padding: 10px; background: white; border-radius: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                        <div style="width: 20px; height: 20px; background: ${relation.couleur}; border-radius: 50%; margin-right: 10px; ${relation.hypothese ? 'border: 2px dashed #666;' : ''}"></div>
+                        <span style="flex: 1;"><strong>${person1.nom}</strong> ↔ <strong>${person2.nom}</strong> : ${relation.nomRelation} (${relation.intensite}/10) ${relation.hypothese ? '<em style="color: #666;">- Hypothèse</em>' : ''}</span>
+                        <button onclick="editRelation(${index})" style="background: #f39c12; color: white; border: none; border-radius: 3px; padding: 5px 10px; cursor: pointer; margin-right: 5px;">Modifier</button>
+                        <button onclick="removeRelation(${index})" style="background: #e74c3c; color: white; border: none; border-radius: 3px; padding: 5px 10px; cursor: pointer;">Supprimer</button>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function removeRelation(index) {
+            relations.splice(index, 1);
+            updateRelationsList();
+        }
+        
+        // Fonction pour éditer une personne
+        function editPerson(personId) {
+            const person = persons.find(p => p.id === personId);
+            if (!person) return;
+            
+            // Remplir les champs avec les données actuelles
+            document.getElementById('personName').value = person.nom;
+            document.getElementById('personImage').value = person.image || '';
+            
+            // Changer le texte du bouton pour indiquer qu'on édite
+            const addButton = document.querySelector('button[onclick="addPerson()"]');
+            addButton.textContent = 'Modifier';
+            addButton.style.background = '#f39c12';
+            addButton.setAttribute('onclick', `updatePerson(${personId})`);
+            
+            // Ajouter un bouton d'annulation
+            if (!document.getElementById('cancelEditPerson')) {
+                const cancelButton = document.createElement('button');
+                cancelButton.id = 'cancelEditPerson';
+                cancelButton.textContent = 'Annuler';
+                cancelButton.style.cssText = 'padding: 10px 20px; background: #95a5a6; color: white; border: none; border-radius: 5px; cursor: pointer; margin-left: 10px;';
+                cancelButton.onclick = cancelEditPerson;
+                addButton.parentNode.appendChild(cancelButton);
+            }
+            
+            // Focus sur le champ nom
+            document.getElementById('personName').focus();
+        }
+        
+        // Fonction pour mettre à jour une personne
+        function updatePerson(personId) {
+            const nameInput = document.getElementById('personName');
+            const imageInput = document.getElementById('personImage');
+            const name = nameInput.value.trim();
+            
+            if (!name) {
+                nameInput.style.borderColor = '#e74c3c';
+                nameInput.focus();
+                return;
+            }
+            
+            // Vérifier si le nom existe déjà (sauf pour la personne courante)
+            if (persons.some(p => p.id !== personId && p.nom.toLowerCase() === name.toLowerCase())) {
+                nameInput.style.borderColor = '#e74c3c';
+                nameInput.focus();
+                return;
+            }
+            
+            // Trouver et mettre à jour la personne
+            const person = persons.find(p => p.id === personId);
+            if (person) {
+                person.nom = name;
+                const newImage = imageInput.value.trim();
+                if (newImage) {
+                    person.image = newImage;
+                    person.color = null;
+                } else if (!person.image) {
+                    // Si pas d'image avant et toujours pas d'image, garder la couleur
+                    // Si image avant mais plus maintenant, générer nouvelle couleur
+                    if (person.image && !newImage) {
+                        person.image = null;
+                        person.color = getRandomColor();
+                    }
+                }
+                
+                // Mettre à jour l'affichage
+                updatePersonsList();
+                updatePersonSelects();
+                updateRelationsList(); // Les noms peuvent avoir changé dans les relations
+                
+                // Remettre le formulaire en mode ajout
+                cancelEditPerson();
+            }
+        }
+        
+        // Fonction pour annuler l'édition d'une personne
+        function cancelEditPerson() {
+            // Vider les champs
+            document.getElementById('personName').value = '';
+            document.getElementById('personImage').value = '';
+            
+            // Remettre le bouton en mode ajout
+            const addButton = document.querySelector('button[onclick^="updatePerson"], button[onclick="addPerson()"]');
+            addButton.textContent = 'Ajouter';
+            addButton.style.background = '#4ecdc4';
+            addButton.setAttribute('onclick', 'addPerson()');
+            
+            // Supprimer le bouton d'annulation
+            const cancelButton = document.getElementById('cancelEditPerson');
+            if (cancelButton) {
+                cancelButton.remove();
+            }
+        }
+        
+        // Fonction pour éditer une relation
+        function editRelation(index) {
+            const relation = relations[index];
+            if (!relation) return;
+            
+            // Remplir les champs avec les données actuelles
+            document.getElementById('person1Select').value = relation.person1;
+            document.getElementById('person2Select').value = relation.person2;
+            document.getElementById('relationName').value = relation.nomRelation;
+            document.getElementById('relationIntensity').value = relation.intensite;
+            document.getElementById('intensityValue').textContent = relation.intensite;
+            document.getElementById('relationColor').value = relation.couleur;
+            document.getElementById('relationHypothesis').checked = relation.hypothese || false;
+            
+            // Changer le texte du bouton pour indiquer qu'on édite
+            const addButton = document.querySelector('button[onclick="addRelation()"]');
+            addButton.textContent = 'Modifier';
+            addButton.style.background = '#f39c12';
+            addButton.setAttribute('onclick', `updateRelation(${index})`);
+            
+            // Ajouter un bouton d'annulation
+            if (!document.getElementById('cancelEditRelation')) {
+                const cancelButton = document.createElement('button');
+                cancelButton.id = 'cancelEditRelation';
+                cancelButton.textContent = 'Annuler';
+                cancelButton.style.cssText = 'padding: 10px 20px; background: #95a5a6; color: white; border: none; border-radius: 5px; cursor: pointer; margin-left: 10px;';
+                cancelButton.onclick = cancelEditRelation;
+                addButton.parentNode.appendChild(cancelButton);
+            }
+            
+            // Focus sur le champ type de relation
+            document.getElementById('relationName').focus();
+        }
+        
+        // Fonction pour mettre à jour une relation
+        function updateRelation(index) {
+            const person1Id = parseInt(document.getElementById('person1Select').value);
+            const person2Id = parseInt(document.getElementById('person2Select').value);
+            const relationName = document.getElementById('relationName').value.trim();
+            const intensity = parseInt(document.getElementById('relationIntensity').value);
+            const color = document.getElementById('relationColor').value;
+            const isHypothesis = document.getElementById('relationHypothesis').checked;
+            
+            if (!person1Id || !person2Id || !relationName) {
+                if (!person1Id) document.getElementById('person1Select').style.borderColor = '#e74c3c';
+                if (!person2Id) document.getElementById('person2Select').style.borderColor = '#e74c3c';
+                if (!relationName) document.getElementById('relationName').style.borderColor = '#e74c3c';
+                return;
+            }
+            
+            if (person1Id === person2Id) {
+                document.getElementById('person2Select').style.borderColor = '#e74c3c';
+                return;
+            }
+            
+            // Vérifier si la relation existe déjà (sauf pour la relation courante)
+            if (relations.some((r, i) => i !== index && 
+                ((r.person1 === person1Id && r.person2 === person2Id) || 
+                 (r.person1 === person2Id && r.person2 === person1Id))
+            )) {
+                document.getElementById('person1Select').style.borderColor = '#e74c3c';
+                document.getElementById('person2Select').style.borderColor = '#e74c3c';
+                return;
+            }
+            
+            // Mettre à jour la relation
+            relations[index] = {
+                person1: person1Id,
+                person2: person2Id,
+                intensite: intensity,
+                nomRelation: relationName,
+                couleur: color,
+                hypothese: isHypothesis
+            };
+            
+            // Mettre à jour l'affichage
+            updateRelationsList();
+            
+            // Remettre le formulaire en mode ajout
+            cancelEditRelation();
+        }
+        
+        // Fonction pour annuler l'édition d'une relation
+        function cancelEditRelation() {
+            // Vider les champs
+            document.getElementById('person1Select').value = '';
+            document.getElementById('person2Select').value = '';
+            document.getElementById('relationName').value = '';
+            document.getElementById('relationIntensity').value = '5';
+            document.getElementById('intensityValue').textContent = '5';
+            document.getElementById('relationColor').value = '#4ecdc4';
+            document.getElementById('relationHypothesis').checked = false;
+            
+            // Remettre le bouton en mode ajout
+            const addButton = document.querySelector('button[onclick^="updateRelation"], button[onclick="addRelation()"]');
+            addButton.textContent = 'Ajouter';
+            addButton.style.background = '#e74c3c';
+            addButton.setAttribute('onclick', 'addRelation()');
+            
+            // Supprimer le bouton d'annulation
+            const cancelButton = document.getElementById('cancelEditRelation');
+            if (cancelButton) {
+                cancelButton.remove();
+            }
+        }
+        
+        // Fonction auxiliaire pour les couleurs (déplacée ici pour être accessible)
+        function getRandomColor() {
+            const colors = [
+                '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57',
+                '#FF9FF3', '#54A0FF', '#5F27CD', '#00D2D3', '#FF9F43',
+                '#10AC84', '#EE5A6F', '#C44569', '#F8B500', '#6C5CE7',
+                '#A29BFE', '#FD79A8', '#E17055', '#00B894', '#0984E3'
+            ];
+            return colors[Math.floor(Math.random() * colors.length)];
+        }
+        
+        function updateStartButton() {
+            const button = document.getElementById('startWheel');
+            if (persons.length >= 3) {
+                button.disabled = false;
+                button.style.opacity = '1';
+                button.textContent = `🎯 Démarrer la Roue (${persons.length} personnes)`;
+            } else {
+                button.disabled = true;
+                button.style.opacity = '0.6';
+                button.textContent = `🎯 Démarrer la Roue (minimum 3 personnes - ${persons.length}/3)`;
+            }
+        }
+        
+        function startWheel() {
+            if (persons.length < 3) {
+                return; // Le bouton est déjà désactivé visuellement
+            }
+            
+            // Cacher le formulaire et afficher l'interface principale
+            document.getElementById('setupForm').style.display = 'none';
+            document.getElementById('mainInterface').style.display = 'block';
+            
+            // Initialiser la roue
+            displayPersons();
+        }
+        
+        function resetToSetup() {
+            // Annuler toute édition en cours
+            cancelEditPerson();
+            cancelEditRelation();
+            
+            // NE PAS réinitialiser les données - garder persons et relations
+            // Réinitialiser seulement les variables d'état de la roue
+            personCards = [];
+            currentRotation = 0;
+            relationsDisplayed = false;
+            
+            // Vider le conteneur de la roue
+            document.getElementById('personContainer').innerHTML = '';
+            
+            // Afficher le formulaire et cacher l'interface principale
+            document.getElementById('setupForm').style.display = 'block';
+            document.getElementById('mainInterface').style.display = 'none';
+            
+            // Mettre à jour les affichages avec les données existantes
+            updatePersonsList();
+            updatePersonSelects();
+            updateRelationsList();
+            updateStartButton();
+        }
+
+        // Fonctions d'export/import
+        async function exportToClipboard() {
+            try {
+                const configData = {
+                    persons: persons,
+                    relations: relations,
+                    personIdCounter: personIdCounter,
+                    exportDate: new Date().toISOString(),
+                    version: "1.0"
+                };
+                
+                const jsonString = JSON.stringify(configData, null, 2);
+                
+                // Copier dans le clipboard
+                await navigator.clipboard.writeText(jsonString);
+                
+                // Message discret dans la console
+                console.log('✅ Configuration exportée dans le presse-papiers');
+                
+                console.log('Configuration exportée:', configData);
+                
+            } catch (error) {
+                console.error('Erreur lors de l\'export:', error);
+                
+                // Fallback si le clipboard n'est pas disponible
+                const configData = {
+                    persons: persons,
+                    relations: relations,
+                    personIdCounter: personIdCounter,
+                    exportDate: new Date().toISOString(),
+                    version: "1.0"
+                };
+                
+                const jsonString = JSON.stringify(configData, null, 2);
+                
+                // Créer une fenêtre avec le JSON pour copie manuelle
+                const popup = window.open('', '_blank', 'width=600,height=400');
+                popup.document.write(`
+                    <html>
+                        <head><title>Configuration JSON</title></head>
+                        <body style="font-family: Arial, sans-serif; padding: 20px;">
+                            <h3>Configuration de la Roue des Relations</h3>
+                            <p>Copiez ce JSON pour sauvegarder votre configuration :</p>
+                            <textarea style="width: 100%; height: 300px; font-family: monospace;">${jsonString}</textarea>
+                        </body>
+                    </html>
+                `);
+            }
+        }
+        
+        // Fonction pour afficher le dialog d'import
+        function showImportDialog() {
+            document.getElementById('importDialog').style.display = 'block';
+            document.getElementById('importTextarea').focus();
+        }
+        
+        // Fonction pour cacher le dialog d'import
+        function hideImportDialog() {
+            document.getElementById('importDialog').style.display = 'none';
+            document.getElementById('importTextarea').value = '';
+        }
+        
+        // Fonction pour traiter l'import depuis le textarea
+        function processImport() {
+            const jsonText = document.getElementById('importTextarea').value.trim();
+            
+            if (!jsonText) {
+                document.getElementById('importTextarea').style.borderColor = '#e74c3c';
+                document.getElementById('importTextarea').focus();
+                return;
+            }
+            
+            // Parser le JSON
+            let configData;
+            try {
+                configData = JSON.parse(jsonText);
+            } catch (parseError) {
+                document.getElementById('importTextarea').style.borderColor = '#e74c3c';
+                document.getElementById('importTextarea').focus();
+                console.error('Erreur de parsing JSON:', parseError);
+                return;
+            }
+            
+            // Valider la structure
+            if (!configData.persons || !Array.isArray(configData.persons)) {
+                document.getElementById('importTextarea').style.borderColor = '#e74c3c';
+                console.error('Configuration invalide: propriété "persons" manquante');
+                return;
+            }
+            
+            if (!configData.relations || !Array.isArray(configData.relations)) {
+                document.getElementById('importTextarea').style.borderColor = '#e74c3c';
+                console.error('Configuration invalide: propriété "relations" manquante');
+                return;
+            }
+            
+            // Confirmation avant import
+            const confirmMsg = `🔄 Importer cette configuration ?\n\n` +
+                `• ${configData.persons.length} personne(s)\n` +
+                `• ${configData.relations.length} relation(s)\n` +
+                `• Exportée le : ${configData.exportDate ? new Date(configData.exportDate).toLocaleString() : 'Date inconnue'}\n` +
+                `• Version : ${configData.version || 'Inconnue'}\n\n` +
+                `⚠️ Cela remplacera votre configuration actuelle !`;
+            
+            if (!confirm(confirmMsg)) {
+                return;
+            }
+            
+            // Annuler toute édition en cours
+            cancelEditPerson();
+            cancelEditRelation();
+            
+            // Importer les données
+            persons = configData.persons || [];
+            relations = configData.relations || [];
+            personIdCounter = configData.personIdCounter || (Math.max(...persons.map(p => p.id), 0) + 1);
+            
+            // S'assurer que toutes les personnes ont une couleur si pas d'image
+            persons.forEach(person => {
+                if (!person.image && !person.color) {
+                    person.color = getRandomColor();
+                }
+            });
+            
+            // Mettre à jour l'affichage
+            updatePersonsList();
+            updatePersonSelects();
+            updateRelationsList();
+            updateStartButton();
+            
+            // Fermer le dialog
+            hideImportDialog();
+            
+            console.log(`✅ Configuration importée: ${persons.length} personne(s), ${relations.length} relation(s)`, configData);
+        }
+
+        // Affichage initial et événements
+        document.addEventListener('DOMContentLoaded', () => {
+            // Ajouter l'événement au bouton spin
+            const spinButton = document.getElementById('spinButton');
+            spinButton.addEventListener('click', spinWheel);
+            
+            // Ajouter l'événement pour le slider d'intensité
+            const intensitySlider = document.getElementById('relationIntensity');
+            const intensityValue = document.getElementById('intensityValue');
+            intensitySlider.addEventListener('input', () => {
+                intensityValue.textContent = intensitySlider.value;
+            });
+            
+            // Permettre d'ajouter une personne avec Entrée
+            document.getElementById('personName').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') addPerson();
+            });
+            
+            // Initialiser l'affichage
+            updateStartButton();
+        });
+    </script>
+</body>
+</html>
